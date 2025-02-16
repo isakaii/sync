@@ -1,8 +1,17 @@
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from "@/utils/supabase/server"
+import FitnessPlan from "@/components/fitness-plan"
 
-export default async function Health() {
-  const supabase = await createClient();
-  const { data: instruments } = await supabase.from("Sample").select();
+export default async function HealthPage() {
+  const supabase = createClient()
+  const { data: healthData, error } = await (await supabase)
+    .from("Sample")
+    .select("*")
+    .order("date", { ascending: true }) // Fetch all data in chronological order
 
-  return <pre>{JSON.stringify(instruments, null, 2)}</pre>
+  if (error) {
+    console.error("Error fetching health data:", error)
+    return <p>Error loading health data.</p>
+  }
+
+  return <FitnessPlan healthData={healthData || []} />
 }
