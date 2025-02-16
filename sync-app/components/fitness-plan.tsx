@@ -4,7 +4,7 @@ import { useState } from "react"
 import axios from "axios"
 import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, Calendar, Moon, User, RefreshCcw } from "lucide-react"
+import { Activity, Calendar, Moon, User, RefreshCcw, Download } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ResponsiveContainer } from "recharts"
 
 type HealthData = {
@@ -26,9 +26,74 @@ type WorkoutPlan = {
   notes: string
 }
 
-export default function FitnessPlan({ healthData }: { healthData: HealthData[] }) {
+// Loading overlay component
+const LoadingOverlay = () => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-8 text-center">
+      <div className="mb-4">
+        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      </div>
+      <p className="text-lg font-semibold text-gray-800">Syncing with your data from Oura and Clue</p>
+      <div className="mt-2 flex justify-center space-x-2">
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "100ms" }}></div>
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "200ms" }}></div>
+      </div>
+    </div>
+  </div>
+);
+
+export default function FitnessPlan({ healthData: initialHealthData }: { healthData: HealthData[] }) {
   const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlan[]>([])
   const [loading, setLoading] = useState(false)
+  const [healthData, setHealthData] = useState(initialHealthData)
+  const [syncing, setSyncing] = useState(false)
+
+  // Function to generate a random date after the latest date in the dataset
+  const getNextDate = (lastDate: string) => {
+    const date = new Date(lastDate)
+    date.setDate(date.getDate() + Math.floor(Math.random() * 3) + 1) // 1-3 days after
+    return date.toISOString().split('T')[0]
+  }
+
+  // Function to simulate syncing new health data
+  async function syncNewData() {
+    setSyncing(true)
+    
+    try {
+      // Show loading screen for 1 second
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      const supabase = createClient()
+      
+      const lastEntry = healthData[healthData.length - 1]
+      const periodLevel = Math.floor(Math.random() * 101)
+      const readinessScore = Math.min(Math.floor((100 - periodLevel) * 0.7 + Math.random() * 20), 79)
+      
+      const newData = {
+        date: getNextDate(lastEntry.date),
+        weight: 120,
+        condition: "Endometriosis",
+        athlete_type: "Runner",
+        period_level: periodLevel,
+        symptoms: periodLevel > 50 ? "PMS" : periodLevel > 30 ? "Acne" : "NULL",
+        readiness_score: readinessScore,
+        sleep_score: Math.floor(Math.random() * (99 - 85) + 85)
+      }
+
+      const { data: insertedData, error } = await (await supabase)
+        .from("health_data")
+        .insert([newData])
+        .select()
+
+      if (error) throw error
+
+      setHealthData([...healthData, { ...newData, id: insertedData[0].id }])
+    } catch (error) {
+      console.error("Error syncing new data:", error)
+    }
+    setSyncing(false)
+  }
 
   async function generateWorkoutPlan() {
     setLoading(true)
@@ -113,6 +178,7 @@ export default function FitnessPlan({ healthData }: { healthData: HealthData[] }
 
   return (
     <div className="container mx-auto p-4">
+      {syncing && <LoadingOverlay />}
 
       {/* App Header */}
       <div className="text-center mb-8">
@@ -121,6 +187,17 @@ export default function FitnessPlan({ healthData }: { healthData: HealthData[] }
           Effective workout plans, <span className="text-blue-500">synced to your cycles</span> for maximum impact.
           Work your body optimally with <span className="font-bold text-blue-600">Sync</span>.
         </p>
+      </div>
+
+      {/* Sync Button */}
+      <div className="flex justify-end mb-6">
+        <button
+          onClick={syncNewData}
+          disabled={syncing}
+          className="bg-green-500 text-white px-4 py-2 rounded flex items-center hover:bg-green-600 disabled:bg-green-300"
+        >
+          <Download className="mr-2" /> {syncing ? "Syncing..." : "Sync New Data"}
+        </button>
       </div>
 
       {/* Show all historical health data */}
