@@ -4,7 +4,7 @@ import FitnessPlan from "@/components/fitness-plan"
 export default async function HealthPage() {
   const supabase = createClient()
   const { data: healthData, error } = await (await supabase)
-    .from("Sample")
+    .from("health_data")
     .select("*")
     .order("date", { ascending: true }) // Fetch all data in chronological order
 
